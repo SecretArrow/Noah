@@ -77,10 +77,7 @@ void main() {
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const NoahApp(),
-      ),
+      UncontrolledProviderScope(container: container, child: const NoahApp()),
     );
     await tester.pump();
     return container;

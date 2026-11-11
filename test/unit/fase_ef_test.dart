@@ -511,9 +511,7 @@ void main() {
       final ReminderService reminders = ReminderService(
         InMemoryReminderRepository(),
       );
-      final Directory dir = Directory.systemTemp.createTempSync(
-        'noah_fase_ef',
-      );
+      final Directory dir = Directory.systemTemp.createTempSync('noah_fase_ef');
       addTearDown(() => dir.deleteSync(recursive: true));
       final ToolExecutor executor = ToolExecutor(
         browser: ScriptedBrowserAutomation(dir.path),

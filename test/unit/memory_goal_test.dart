@@ -132,10 +132,7 @@ void main() {
       expect(svc.promptSummary('chat-a', 'anything'), isEmpty);
       await svc.add('chat-a', 'User prefers dark mode', pinned: true);
       await svc.add('chat-a', 'User works on Noah project');
-      final String summary = svc.promptSummary(
-        'chat-a',
-        'tell me about Noah',
-      );
+      final String summary = svc.promptSummary('chat-a', 'tell me about Noah');
       expect(summary, contains('dark mode'));
       expect(summary.length, lessThanOrEqualTo(MemoryService.promptMaxChars));
     });

@@ -2887,8 +2887,7 @@ class AppStringsId implements AppStrings {
   String get updateBannerTitle => 'Pembaruan tersedia';
 
   @override
-  String get updateBannerBody =>
-      'Versi Noah yang lebih baru sudah tersedia.';
+  String get updateBannerBody => 'Versi Noah yang lebih baru sudah tersedia.';
 
   @override
   String get updateOpenRelease => 'Lihat rilis';

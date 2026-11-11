@@ -102,9 +102,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ),
       );
       if (randomize == true) {
-        await ref
-            .read(userAgentManagerProvider)
-            .rotateRandom(settings.uaMode);
+        await ref.read(userAgentManagerProvider).rotateRandom(settings.uaMode);
       }
     }
     if (!mounted) return;
@@ -622,9 +620,7 @@ class _BottomNavPill extends StatelessWidget {
 
   /// Same route the matching drawer item pushes.
   void _push(BuildContext context, Widget screen) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => screen));
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
 }
 

@@ -351,9 +351,9 @@ class ChatDrawer extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(kPillRadius),
                         ),
                         selected: active,
-                        selectedTileColor: Theme.of(
-                          context,
-                        ).colorScheme.secondaryContainer,
+                        selectedTileColor: Theme.of(context)
+                            .colorScheme
+                            .secondaryContainer,
                         leading: Icon(
                           Icons.chat_bubble_outline_rounded,
                           size: 18,

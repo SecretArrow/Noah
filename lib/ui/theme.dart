@@ -91,18 +91,19 @@ extension ZPaletteX on BuildContext {
 ThemeData _baseTheme(Brightness brightness) {
   final bool isDark = brightness == Brightness.dark;
   final ZPalette p = isDark ? ZPalette.dark : ZPalette.light;
-  final ColorScheme scheme = ColorScheme.fromSeed(
-    seedColor: kAccentColor,
-    brightness: brightness,
-    surface: p.surface,
-  ).copyWith(
-    primary: isDark ? kPrimaryDarkColor : kAccentColor,
-    onPrimary: Colors.white,
-    onSurface: isDark ? kDarkOnSurfaceColor : kLightOnSurfaceColor,
-    secondaryContainer: isDark
-        ? kSecondaryContainerDarkColor
-        : kSecondaryContainerLightColor,
-  );
+  final ColorScheme scheme =
+      ColorScheme.fromSeed(
+        seedColor: kAccentColor,
+        brightness: brightness,
+        surface: p.surface,
+      ).copyWith(
+        primary: isDark ? kPrimaryDarkColor : kAccentColor,
+        onPrimary: Colors.white,
+        onSurface: isDark ? kDarkOnSurfaceColor : kLightOnSurfaceColor,
+        secondaryContainer: isDark
+            ? kSecondaryContainerDarkColor
+            : kSecondaryContainerLightColor,
+      );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,

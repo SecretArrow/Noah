@@ -394,10 +394,7 @@ module.exports = main();
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const NoahApp(),
-      ),
+      UncontrolledProviderScope(container: container, child: const NoahApp()),
     );
     await tester.pumpAndSettle(const Duration(seconds: 1));
 
@@ -559,10 +556,7 @@ module.exports = main();
     );
     addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const NoahApp(),
-      ),
+      UncontrolledProviderScope(container: container, child: const NoahApp()),
     );
     await tester.pumpAndSettle(const Duration(seconds: 1));
 

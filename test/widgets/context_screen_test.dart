@@ -32,10 +32,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const NoahApp(),
-      ),
+      UncontrolledProviderScope(container: container, child: const NoahApp()),
     );
     await tester.pump();
 
@@ -83,10 +80,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const NoahApp(),
-      ),
+      UncontrolledProviderScope(container: container, child: const NoahApp()),
     );
     await tester.pump();
     final NavigatorState navigator = tester.state(find.byType(Navigator));
@@ -140,10 +134,7 @@ void main() {
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const NoahApp(),
-      ),
+      UncontrolledProviderScope(container: container, child: const NoahApp()),
     );
     await tester.pump();
     final NavigatorState navigator = tester.state(find.byType(Navigator));
