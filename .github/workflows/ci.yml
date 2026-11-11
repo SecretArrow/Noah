@@ -132,7 +132,7 @@ jobs:
           pub-cache: true
 
       - name: Gradle cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -219,7 +219,7 @@ jobs:
           pub-cache: true
 
       - name: Gradle cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -231,7 +231,7 @@ jobs:
         run: flutter pub get
 
       - name: AVD cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         id: avd-cache
         with:
           path: |
