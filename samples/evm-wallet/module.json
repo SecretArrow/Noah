@@ -1,0 +1,17 @@
+{
+  "name": "evm-wallet",
+  "version": "1.0.0",
+  "title": "EVM Wallet",
+  "description": "A per-chat EVM wallet driven by /wallet slash commands: generates a FRESH random account for every chat (no imports — private keys never travel through the chat), EIP-55 checksum addresses, native + ERC-20 balances, gas price, multi-network JSON-RPC over public endpoints (Ethereum, Sepolia, BSC, Polygon, Arbitrum, Base, OP Mainnet + testnets), and EIP-155 signed transfers with a mandatory two-step confirmation (/wallet send shows the FULL transaction summary, /wallet confirm signs and broadcasts, /wallet cancel discards). Testnet by default (Sepolia). Sample/demo quality — small amounts only.",
+  "entry": "main.js",
+  "permissions": ["storage", "network", "chat"],
+  "allowedHosts": [
+    "*.publicnode.com",
+    "arb1.arbitrum.io",
+    "mainnet.base.org",
+    "mainnet.optimism.io",
+    "cloudflare-eth.com"
+  ],
+  "timeoutSeconds": 120,
+  "commands": ["wallet"]
+}

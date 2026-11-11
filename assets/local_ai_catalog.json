@@ -1,0 +1,243 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "ollamaRef": "qwen3:0.6b",
+      "downloadBytes": 522653277,
+      "ramEstBytes": 1073741824,
+      "contextTokens": 40960,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "gemma3:1b",
+      "downloadBytes": 806067267,
+      "ramEstBytes": 1288490188,
+      "contextTokens": 32768,
+      "tier": "tier1",
+      "license": "Gemma"
+    },
+    {
+      "ollamaRef": "bonsai-2:2b",
+      "downloadBytes": 911364059,
+      "ramEstBytes": 1395864371,
+      "contextTokens": 262144,
+      "tier": "tier1"
+    },
+    {
+      "ollamaRef": "gemma3:270m",
+      "downloadBytes": 291554440,
+      "ramEstBytes": 751619276,
+      "contextTokens": 32768,
+      "tier": "tier1",
+      "license": "Gemma"
+    },
+    {
+      "ollamaRef": "smollm2:135m",
+      "downloadBytes": 270898111,
+      "ramEstBytes": 644245094,
+      "contextTokens": 8192,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "smollm2:360m",
+      "downloadBytes": 725565951,
+      "ramEstBytes": 1181116006,
+      "contextTokens": 8192,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "qwen2.5-coder:0.5b",
+      "downloadBytes": 397821026,
+      "ramEstBytes": 858993459,
+      "contextTokens": 32768,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "smollm:135m",
+      "downloadBytes": 91738925,
+      "ramEstBytes": 536870912,
+      "contextTokens": 2048,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "smollm:360m",
+      "downloadBytes": 229130573,
+      "ramEstBytes": 751619276,
+      "contextTokens": 2048,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "tinyllama:1.1b",
+      "downloadBytes": 637699655,
+      "ramEstBytes": 966367641,
+      "contextTokens": 2048,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "yi-coder:1.5b",
+      "downloadBytes": 866168498,
+      "ramEstBytes": 1288490188,
+      "contextTokens": 131072,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "stablelm2:1.6b",
+      "downloadBytes": 982789899,
+      "ramEstBytes": 1288490188,
+      "contextTokens": 4096,
+      "tier": "tier1",
+      "license": "StabilityAI"
+    },
+    {
+      "ollamaRef": "reader-lm:0.5b",
+      "downloadBytes": 352166385,
+      "ramEstBytes": 858993459,
+      "contextTokens": 256000,
+      "tier": "tier1",
+      "license": "CC-BY-NC-4.0"
+    },
+    {
+      "ollamaRef": "reader-lm:1.5b",
+      "downloadBytes": 934966449,
+      "ramEstBytes": 1288490188,
+      "contextTokens": 256000,
+      "tier": "tier1",
+      "license": "CC-BY-NC-4.0"
+    },
+    {
+      "ollamaRef": "openbmb/minicpm5:latest",
+      "downloadBytes": 688066182,
+      "ramEstBytes": 1181116006,
+      "contextTokens": 131072,
+      "tier": "tier1",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "hf.co/taobao-mnn/MNN-Pocket-0.3B-GGUF:Q4_1",
+      "downloadBytes": 191896672,
+      "ramEstBytes": 536870912,
+      "contextTokens": 40960,
+      "tier": "tier1",
+      "license": "Apache-2.0",
+      "directUrl": "https://huggingface.co/taobao-mnn/MNN-Pocket-0.3B-GGUF/resolve/main/MNN-Pocket-0.3B-Instruct-Q4_1.gguf"
+    },
+    {
+      "ollamaRef": "qwen2.5-coder:1.5b",
+      "downloadBytes": 986061602,
+      "ramEstBytes": 1610612736,
+      "contextTokens": 32768,
+      "tier": "tier2",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "deepseek-r1:1.5b",
+      "downloadBytes": 1117322281,
+      "ramEstBytes": 1717986918,
+      "contextTokens": 131072,
+      "tier": "tier2",
+      "license": "MIT"
+    },
+    {
+      "ollamaRef": "lfm3:1.7b",
+      "downloadBytes": 1099638463,
+      "ramEstBytes": 1717986918,
+      "contextTokens": 262144,
+      "tier": "tier2"
+    },
+    {
+      "ollamaRef": "qwen3.5:0.8b",
+      "downloadBytes": 1322069043,
+      "ramEstBytes": 1825361100,
+      "contextTokens": 262144,
+      "tier": "tier2"
+    },
+    {
+      "ollamaRef": "llama3.2:1b",
+      "downloadBytes": 1321097844,
+      "ramEstBytes": 1825361100,
+      "contextTokens": 131072,
+      "tier": "tier2",
+      "license": "Llama-Community"
+    },
+    {
+      "ollamaRef": "qwen3:1.7b",
+      "downloadBytes": 1359292957,
+      "ramEstBytes": 1932735283,
+      "contextTokens": 40960,
+      "tier": "tier2",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "smollm2:1.7b",
+      "downloadBytes": 1820427974,
+      "ramEstBytes": 2040109465,
+      "contextTokens": 8192,
+      "tier": "tier2",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "sam860/olmo2:1b",
+      "downloadBytes": 1581667706,
+      "ramEstBytes": 1932735283,
+      "contextTokens": 4096,
+      "tier": "tier2",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "hf.co/zyr-AGENT/ZY-S2:Q5_K_M",
+      "downloadBytes": 1125049984,
+      "ramEstBytes": 1503238553,
+      "contextTokens": 32768,
+      "tier": "tier2",
+      "license": "Apache-2.0",
+      "directUrl": "https://huggingface.co/zyr-AGENT/ZY-S2/resolve/main/ZY-S2-Q5_K_M.gguf"
+    },
+    {
+      "ollamaRef": "bonsai-2:4b",
+      "downloadBytes": 1579008347,
+      "ramEstBytes": 2791728742,
+      "contextTokens": 262144,
+      "tier": "upperBound"
+    },
+    {
+      "ollamaRef": "qwen3.5:2b",
+      "downloadBytes": 2683396637,
+      "ramEstBytes": 3113851289,
+      "contextTokens": 262144,
+      "tier": "upperBound",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "phi4-mini:3.8b",
+      "downloadBytes": 2491876363,
+      "ramEstBytes": 2576980377,
+      "contextTokens": 131072,
+      "tier": "upperBound",
+      "license": "MIT"
+    },
+    {
+      "ollamaRef": "granite4.2:3b",
+      "downloadBytes": 2244023548,
+      "ramEstBytes": 2791728742,
+      "contextTokens": 131072,
+      "tier": "upperBound",
+      "license": "Apache-2.0"
+    },
+    {
+      "ollamaRef": "gemma4:e2b",
+      "downloadBytes": 4587156264,
+      "ramEstBytes": 3758096384,
+      "contextTokens": 131072,
+      "tier": "upperBound",
+      "license": "Apache-2.0"
+    }
+  ]
+}

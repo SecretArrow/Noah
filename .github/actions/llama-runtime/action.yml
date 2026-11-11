@@ -1,0 +1,216 @@
+# v1.51.0 — Local AI runtime builder (S3). Cross-compiles llama.cpp
+# `llama-server` (pinned tag, default b12182) for the requested Android ABIs
+# with the NDK and copies it to android/app/src/main/jniLibs/<abi>/
+# (git-ignored: injected at build time, never committed).
+#
+# v1.51.1 — cache-first rework: the cache key no longer contains the NDK
+# version and NDK resolution/build is skipped entirely when every requested
+# ABI is cached (the 2026 runner images stopped preinstalling NDKs).
+#
+# v1.51.2 — companion libraries: llama.cpp b12182 builds EVERYTHING shared.
+# bin/llama-server is only a thin PIE LAUNCHER (~7 KB) that needs, beside it:
+#   libllama-server-impl.so (the actual server logic, several MB),
+#   libggml.so, libggml-base.so, libggml-cpu.so.
+# All are copied per-ABI (each already lib*-prefixed, so PackageManager
+# extracts them into nativeLibraryDir next to the launcher), and the
+# launcher is linked with -rpath $ORIGIN so the dynamic linker resolves
+# its siblings inside nativeLibraryDir.
+
+name: 'llama.cpp runtime (llama-server)'
+description: >-
+  Cross-compile llama.cpp llama-server for Android ABIs with the NDK and
+  inject it (launcher + companion shared libs) into
+  android/app/src/main/jniLibs/<abi>/.
+
+inputs:
+  abis:
+    description: 'Space-separated Android ABIs, e.g. "arm64-v8a x86_64"'
+    required: true
+    type: string
+  llama-tag:
+    description: 'llama.cpp tag to build (runtime pin)'
+    required: false
+    default: 'b12182'
+    type: string
+
+runs:
+  using: 'composite'
+  steps:
+    # v1.51.1 — cache-key fragment (no NDK: warm runs must not need one).
+    - name: Compute ABI coverage
+      id: coverage
+      shell: bash
+      env:
+        ABIS: ${{ inputs.abis }}
+      run: |
+        set -euo pipefail
+        ABI_KEY=$(echo "$ABIS" | tr ' ' '-')
+        echo "abi-key=$ABI_KEY" >> "$GITHUB_OUTPUT"
+        echo "computed abi-key=$ABI_KEY for abis='$ABIS'"
+
+    # v1.51.2 — key v3: the cached shape changed (launcher + companions).
+    - name: Restore llama-server cache
+      id: llama-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/noah-llama-runtime
+        key: llama-runtime-${{ inputs.llama-tag }}-${{ steps.coverage.outputs.abi-key }}-v3
+
+    # v1.51.1 — which requested ABIs are still missing after the restore?
+    - name: Check cached ABIs
+      id: matrix
+      shell: bash
+      env:
+        ABIS: ${{ inputs.abis }}
+      run: |
+        set -euo pipefail
+        MISSING=""
+        for ABI in $ABIS; do
+          if [ -f "$HOME/.cache/noah-llama-runtime/$ABI/libllamaserver.so" ] && \
+             [ -f "$HOME/.cache/noah-llama-runtime/$ABI/libllama-server-impl.so" ]; then
+            echo "$ABI: runtime found in cache"
+          else
+            echo "$ABI: NOT cached (or incomplete) - will build"
+            MISSING="$MISSING $ABI"
+          fi
+        done
+        MISSING=$(echo "$MISSING" | xargs)
+        echo "missing=$MISSING" >> "$GITHUB_OUTPUT"
+        echo "missing-abis='$MISSING'"
+
+    # v1.51.1 — resolve the NDK ONLY when something needs building.
+    - name: Resolve NDK
+      id: ndk
+      if: steps.matrix.outputs.missing != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+        NDK_DIR=$(ls -d "$SDK"/ndk/* 2>/dev/null | sort -V | tail -n 1 || true)
+        if [ -z "$NDK_DIR" ] || [ ! -f "$NDK_DIR/build/cmake/android.toolchain.cmake" ]; then
+          echo "No usable preinstalled NDK - installing pinned ndk;27.2.12479018"
+          SDKMANAGER=""
+          for CAND in \
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK/cmdline-tools/bin/sdkmanager" \
+            "$(command -v sdkmanager || true)"; do
+            if [ -n "$CAND" ] && [ -x "$CAND" ]; then SDKMANAGER="$CAND"; break; fi
+          done
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::No preinstalled NDK under $SDK/ndk and no sdkmanager found."
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          yes | "$SDKMANAGER" "ndk;27.2.12479018" >/dev/null || true
+          NDK_DIR=$(ls -d "$SDK"/ndk/* 2>/dev/null | sort -V | tail -n 1 || true)
+        fi
+        if [ -z "$NDK_DIR" ] || [ ! -f "$NDK_DIR/build/cmake/android.toolchain.cmake" ]; then
+          echo "::error::No usable Android NDK found in $SDK/ndk (pinned install failed too)."
+          exit 1
+        fi
+        echo "Using NDK $(basename "$NDK_DIR") at $NDK_DIR"
+        echo "ndk-dir=$NDK_DIR" >> "$GITHUB_OUTPUT"
+
+    # v1.51.2 — build + copy the launcher AND its companion shared libs.
+    # LLAMA_BUILD_TOOLS stays ON (llama-server lives under tools/);
+    # tool-impl libs for OTHER tools are simply not copied. The launcher is
+    # linked with -rpath $ORIGIN so it finds its companions in
+    # nativeLibraryDir (same directory) at runtime.
+    - name: Build llama-server (cached ABIs are skipped)
+      if: steps.matrix.outputs.missing != ''
+      shell: bash
+      env:
+        ABIS: ${{ steps.matrix.outputs.missing }}
+        LLAMA_TAG: ${{ inputs.llama-tag }}
+        NDK_DIR: ${{ steps.ndk.outputs.ndk-dir }}
+      run: |
+        set -euo pipefail
+        for ABI in $ABIS; do
+          CACHE_SO="$HOME/.cache/noah-llama-runtime/$ABI/libllamaserver.so"
+          if [ -f "$CACHE_SO" ] && [ -f "$HOME/.cache/noah-llama-runtime/$ABI/libllama-server-impl.so" ]; then
+            echo "$ABI: runtime found in cache - skipping build"
+            continue
+          fi
+          echo "$ABI: building llama-server from llama.cpp $LLAMA_TAG"
+          if [ ! -d "$RUNNER_TEMP/llama.cpp" ]; then
+            git clone --depth 1 --branch "$LLAMA_TAG" \
+              https://github.com/ggml-org/llama.cpp "$RUNNER_TEMP/llama.cpp"
+          fi
+          cmake -S "$RUNNER_TEMP/llama.cpp" -B "$RUNNER_TEMP/build-$ABI" \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK_DIR/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI="$ABI" \
+            -DANDROID_PLATFORM=android-24 \
+            -DANDROID_STL=c++_static \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TOOLS=ON \
+            -DLLAMA_CURL=OFF \
+            -DGGML_NATIVE=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-rpath,\$ORIGIN"
+          cmake --build "$RUNNER_TEMP/build-$ABI" --config Release --target llama-server --parallel "$(nproc)"
+          OUT="$RUNNER_TEMP/build-$ABI/bin"
+          mkdir -p "$(dirname "$CACHE_SO")"
+          cp "$OUT/llama-server" "$CACHE_SO"
+          # v1.51.2 — the launcher needs these beside it (b12182 all-shared
+          # architecture). Copy each one that exists; warn on absence so a
+          # future llama.cpp layout change is visible in the logs.
+          for LIB in libllama-server-impl.so libggml.so libggml-base.so libggml-cpu.so; do
+            if [ -f "$OUT/$LIB" ]; then
+              cp "$OUT/$LIB" "$(dirname "$CACHE_SO")/"
+            else
+              echo "::warning::$ABI: expected companion $LIB was not produced by the build."
+            fi
+          done
+        done
+
+    # v1.51.2 — inject EVERYTHING (launcher + companions) and verify: the
+    # launcher must be a 64-bit ELF for the right machine, and the impl
+    # library must be a real multi-MB payload (the launcher is legitimately
+    # tiny — a size guard on IT was the misleading check in v1.51.1).
+    - name: Inject libllamaserver.so into jniLibs and verify
+      shell: bash
+      env:
+        ABIS: ${{ inputs.abis }}
+      run: |
+        set -euo pipefail
+        for ABI in $ABIS; do
+          CACHE_DIR="$HOME/.cache/noah-llama-runtime/$ABI"
+          DEST_DIR="$GITHUB_WORKSPACE/android/app/src/main/jniLibs/$ABI"
+          if [ ! -f "$CACHE_DIR/libllamaserver.so" ]; then
+            echo "::error::Runtime for $ABI was neither cached nor built ($CACHE_DIR/libllamaserver.so missing)."
+            exit 1
+          fi
+          mkdir -p "$DEST_DIR"
+          cp "$CACHE_DIR"/*.so "$DEST_DIR/"
+          echo "== $ABI injected files =="
+          ls -la "$DEST_DIR"
+          sha256sum "$DEST_DIR"/*.so
+          FILE_OUT=$(file -b "$DEST_DIR/libllamaserver.so")
+          echo "$ABI launcher: $FILE_OUT"
+          case "$ABI" in
+            arm64-v8a) EXPECT='aarch64' ;;
+            x86_64)    EXPECT='x86-64' ;;
+            *)         EXPECT='' ;;
+          esac
+          if ! echo "$FILE_OUT" | grep -q '^ELF 64-bit'; then
+            echo "::error::$DEST_DIR/libllamaserver.so is not a 64-bit ELF: $FILE_OUT"
+            exit 1
+          fi
+          if [ -n "$EXPECT" ] && ! echo "$FILE_OUT" | grep -q "$EXPECT"; then
+            echo "::error::$DEST_DIR/libllamaserver.so: expected a $EXPECT binary, got: $FILE_OUT"
+            exit 1
+          fi
+          IMPL="$DEST_DIR/libllama-server-impl.so"
+          if [ ! -f "$IMPL" ]; then
+            echo "::error::$IMPL is missing — the launcher cannot run without the server impl (b12182 all-shared architecture)."
+            exit 1
+          fi
+          IMPL_SIZE=$(stat -c%s "$IMPL")
+          if [ "$IMPL_SIZE" -lt 1048576 ]; then
+            echo "::error::$IMPL is only $IMPL_SIZE bytes (< 1 MB) — the real server payload is missing."
+            exit 1
+          fi
+          echo "OK: $ABI runtime (launcher + companions) injected and verified."
+        done

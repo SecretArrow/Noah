@@ -1,0 +1,9 @@
+{
+  "name": "network-fetcher",
+  "version": "1.0.0",
+  "title": "Network Fetcher",
+  "description": "Fetches a quote from api.github.com through the app HTTP transport. Demonstrates zagents.http with a manifest allowedHosts allowlist.",
+  "entry": "main.js",
+  "permissions": ["network", "chat"],
+  "allowedHosts": ["api.github.com"]
+}

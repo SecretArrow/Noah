@@ -1,0 +1,8 @@
+{
+  "name": "file-notes",
+  "version": "1.0.0",
+  "title": "File Notes",
+  "description": "Appends a timestamp to a note file inside THIS chat's sandboxed state directory. Demonstrates the zagents.fs file API.",
+  "entry": "main.js",
+  "permissions": ["files"]
+}

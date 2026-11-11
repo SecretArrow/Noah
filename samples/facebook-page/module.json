@@ -1,0 +1,21 @@
+{
+  "name": "facebook-page",
+  "version": "1.0.0",
+  "title": "Facebook Page Assistant",
+  "description": "Asisten Fanspage Facebook per chat: login otomatis ke halaman lewat Page Access Token (disimpan di storage chat ini, tidak dibagikan ke chat lain), lalu memantau dan membalas pesan Messenger serta komentar di post secara otomatis. Setiap balasan dipilih dari template per intent (sapaan, tanya harga, ongkir, komplain, dan lain-lain), placeholder {name}/{page} diisi, lalu dipoles oleh agent chat via zagents.agent.polish agar terdengar natural seperti manusia — dengan jeda acak antar balasan (fast/normal/slow) dan anti-repetisi terhadap 8 balasan terakhir. Semua state (token, config, template, statistik, daftar pesan/komentar yang sudah diproses) terisolasi per chat, sehingga beberapa halaman bisa dikelola dari chat yang berbeda.",
+  "entry": "main.js",
+  "permissions": ["storage", "network", "agent", "chat"],
+  "allowedHosts": ["graph.facebook.com"],
+  "timeoutSeconds": 120,
+  "commands": ["fb"],
+  "setup": {
+    "title": "Facebook Page Assistant",
+    "description": "Page Access Token disimpan per-chat, tidak dibagikan ke chat lain.",
+    "fields": [
+      { "key": "pageToken", "label": "Page Access Token", "type": "password", "required": true, "description": "Dari developers.facebook.com — Graph API Explorer atau Page token long-lived" },
+      { "key": "autoMessages", "label": "Auto-reply pesan Messenger", "type": "boolean" },
+      { "key": "autoComments", "label": "Auto-reply komentar", "type": "boolean" },
+      { "key": "language", "label": "Bahasa balasan (kosong = ikuti bahasa pengirim)", "type": "text" }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "qr-tools",
+  "version": "1.0.0",
+  "title": "QR Code",
+  "description": "Generate real, scannable QR codes as Unicode block art directly in the chat via /qr slash commands — zero special permissions, fully offline, pure-JS implementation (byte mode, versions 1-25, Reed-Solomon ECC levels L/M/Q/H, optimal mask selection per the QR spec). /qr <text> encodes any text or URL; /qr wifi <ssid> | <password> [| WPA|WEP|nopass] builds a WIFI: payload phones understand. The chat renders the matrix with half-block characters that phone cameras scan straight off the screen.",
+  "entry": "main.js",
+  "permissions": [],
+  "timeoutSeconds": 60,
+  "commands": ["qr"]
+}

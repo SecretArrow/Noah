@@ -1,0 +1,10 @@
+{
+  "name": "agentic-wallet",
+  "version": "1.0.0",
+  "title": "Agentic Wallet",
+  "description": "Companion kebijakan dan pembukuan per-chat untuk alur resmi Binance Agentic Wallet: mencatat pasangan dompet (pembukuan saja), limit belanja harian, jaringan aktif, daftar token, validasi alamat EIP-55, dan niat belanja (/aw spend) yang selalu diawali kartu konfirmasi request_confirmation oleh agent lalu dieksekusi pengguna sendiri di aplikasi/web resmi Binance. Modul ini JUJUR dan sengaja TIDAK BISA memindahkan dana: tanpa kunci privat, tanpa tanda tangan transaksi, tanpa izin jaringan — hanya lapisan kebijakan/pencatatan yang bekerja penuh di perangkat.",
+  "entry": "main.js",
+  "permissions": ["storage", "agent", "chat"],
+  "timeoutSeconds": 60,
+  "commands": ["aw"]
+}

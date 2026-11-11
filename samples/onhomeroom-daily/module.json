@@ -1,0 +1,29 @@
+{
+  "name": "onhomeroom-daily",
+  "version": "1.2.0",
+  "title": "OnHomeroom Daily",
+  "description": "Works app.onhomeroom.com one paced cycle per activation: challenge board, yes votes, one chat reply, app try-ins and the proposal pipeline. Every sentence — including the app ideas it requests — is composed live by the chat agent (no templates). The app collects the account with a per-chat setup form before the first run.",
+  "entry": "main.js",
+  "permissions": ["storage", "network", "agent"],
+  "allowedHosts": ["*.onhomeroom.com"],
+  "timeoutSeconds": 120,
+  "setup": {
+    "title": "OnHomeroom account",
+    "description": "Credentials the daily cycle uses to sign in to app.onhomeroom.com.",
+    "fields": [
+      {
+        "key": "email",
+        "label": "Email",
+        "type": "text",
+        "required": true,
+        "placeholder": "you@example.com"
+      },
+      {
+        "key": "password",
+        "label": "Password",
+        "type": "password",
+        "required": true
+      }
+    ]
+  }
+}

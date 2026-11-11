@@ -1,0 +1,9 @@
+{
+  "name": "airplane-mode",
+  "version": "1.3.0",
+  "title": "Airplane Mode",
+  "description": "Controls Android airplane mode from the chat and rotates the carrier IP. Rooted phones: fully automatic verified toggle plus /airplane cycle — the one-command IP rotation (airplane ON → hold → OFF → settle; the radio re-registers with a NEW IP and the cycle always ends OFF/online). Non-rooted phones: guided MANUAL mode — the module verifies the REAL state with the world-readable probe (works offline) and walks you through the toggle. Type /airplane cycle (aliases: ip, rotate), /airplane on, /airplane off or /airplane status while this module is active; commands run app-side, so they keep working even while airplane mode is ON and the AI chat is unreachable. Root actions additionally need the 'Device commands (root)' switch in Settings → Modules.",
+  "entry": "main.js",
+  "permissions": ["device"],
+  "commands": ["airplane"]
+}

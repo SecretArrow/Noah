@@ -1,0 +1,27 @@
+{
+  "name": "zagents-sdk",
+  "version": "1.21.1",
+  "description": "Official SDK for Noah chat modules (plugins). Provides the typed surface of the `zagents` global: per-chat storage, sandboxed files, permission-gated HTTP and chat output.",
+  "main": "zagents-sdk.js",
+  "types": "index.d.ts",
+  "files": [
+    "zagents-sdk.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "keywords": [
+    "zagents",
+    "module",
+    "plugin",
+    "chat",
+    "sandbox",
+    "sdk"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SecretArrow/Noah"
+  },
+  "homepage": "https://github.com/SecretArrow/Noah/tree/main/sdk",
+  "bugs": "https://github.com/SecretArrow/Noah/issues"
+}

@@ -1,0 +1,23 @@
+{
+  "name": "twitter-x",
+  "version": "1.0.0",
+  "title": "Twitter/X Assistant",
+  "description": "Auto-reply mentions di X/Twitter langsung dari chat: poll mentions via X API v2 dengan OAuth 1.0a user context, klasifikasi intent (komplain/pujian/pertanyaan/umum), lalu balas pakai template bahasa Indonesia kasual yang dipoles agent AI agar natural — kalau AI gagal, otomatis fallback ke varian template yang slotnya sudah diisi, jadi run tidak pernah crash. Consumer keys + Access Token (Read & Write) diisi sekali lewat setup form dan disimpan per-chat: tidak dibagikan ke chat lain, hanya dikirim ke api.x.com. Ada mode check sekali jalan, burst watch /tw auto dengan jeda human-like antar balasan, template manager (/tw template), composer tweet (/tw tweet polish) dan balasan manual (/tw reply). Catatan: tier Free bisa posting (500 tweet/bulan) tapi tidak punya akses baca mentions — auto-reply butuh Basic/Premium.",
+  "entry": "main.js",
+  "permissions": ["storage", "network", "agent", "chat"],
+  "allowedHosts": ["api.x.com", "api.twitter.com"],
+  "timeoutSeconds": 120,
+  "commands": ["tw"],
+  "setup": {
+    "title": "Twitter/X Assistant",
+    "description": "Consumer keys + Access Token (Read & Write) dari developer.x.com — disimpan per-chat, tidak dibagikan ke chat lain.",
+    "fields": [
+      { "key": "apiKey", "label": "API Key (Consumer Key)", "type": "password", "required": true },
+      { "key": "apiKeySecret", "label": "API Key Secret", "type": "password", "required": true },
+      { "key": "accessToken", "label": "Access Token", "type": "password", "required": true },
+      { "key": "accessTokenSecret", "label": "Access Token Secret", "type": "password", "required": true },
+      { "key": "handle", "label": "Username X tanpa @", "type": "text", "required": true },
+      { "key": "autoReply", "label": "Auto-reply mentions", "type": "boolean" }
+    ]
+  }
+}

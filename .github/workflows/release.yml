@@ -1,0 +1,353 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.7'
+  JAVA_VERSION: '17'
+
+jobs:
+  build-release:
+    name: Build & publish APK + AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Gradle cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-release-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: gradle-release-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Quality gate (analyze + tests)
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Resolve version and check it matches the tag
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          if [ -z "$VERSION" ]; then
+            echo "::error::could not read version from pubspec.yaml"
+            exit 1
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [ "$TAG_VERSION" != "$VERSION" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match pubspec version $VERSION"
+              exit 1
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version $VERSION"
+
+      - name: Restore signing keystore
+        id: keystore
+        # Secrets are read here only to unzip and to validate the alias; they are
+        # NOT exported to $GITHUB_ENV. The build step receives them directly.
+        env:
+          ZIP_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD || secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          ALIAS_HINT: ${{ secrets.KEYSTORE_ALIAS }}
+          EXPECTED_SHA256: ${{ secrets.KEYSTORE_SHA256 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ZIP_PASSWORD:-}" ]; then
+            echo "::error::Secret KEYSTORE_PASSWORD is not set. Refusing to publish an unsigned (debug-signed) release APK."
+            exit 1
+          fi
+          if [ ! -f key-sign-apk.zip ]; then
+            echo "::error::key-sign-apk.zip is missing from the repository root."
+            exit 1
+          fi
+          if ! command -v 7z >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq p7zip-full
+          fi
+          rm -rf android/keystore
+          mkdir -p android/keystore
+          if ! 7z x -y -p"$ZIP_PASSWORD" -oandroid/keystore key-sign-apk.zip >/dev/null; then
+            echo "::error::Failed to unzip key-sign-apk.zip (wrong KEYSTORE_PASSWORD?)"
+            exit 1
+          fi
+          KS=$(find android/keystore -type f \( -name '*.keystore' -o -name '*.jks' -o -name '*.p12' \) | head -n1)
+          if [ -z "$KS" ]; then
+            echo "::error::No keystore file found inside key-sign-apk.zip."
+            exit 1
+          fi
+          # Fixed path so the build step can reference it without $GITHUB_ENV.
+          cp "$KS" android/keystore/signing.keystore
+
+          echo "Keystore entries:"
+          keytool -list -keystore android/keystore/signing.keystore -storepass "$STORE_PASSWORD" | sed -n '1,40p'
+
+          if [ -n "${ALIAS_HINT:-}" ]; then
+            ALIAS="$ALIAS_HINT"
+            if ! keytool -list -keystore android/keystore/signing.keystore \
+                -storepass "$STORE_PASSWORD" -alias "$ALIAS" >/dev/null 2>&1; then
+              echo "::error::Alias '$ALIAS' (secret KEYSTORE_ALIAS) not found in the keystore."
+              exit 1
+            fi
+          else
+            ALIAS=$(keytool -list -keystore android/keystore/signing.keystore \
+              -storepass "$STORE_PASSWORD" 2>/dev/null \
+              | awk -F, '/PrivateKeyEntry/ {gsub(/ /,"",$1); print $1; exit}')
+            if [ -z "$ALIAS" ]; then
+              echo "::error::No PrivateKeyEntry found in the keystore."
+              exit 1
+            fi
+          fi
+          echo "alias=$ALIAS" >> "$GITHUB_OUTPUT"
+
+          # Optional: pin the expected certificate. If the secret is set, a
+          # mismatched keystore fails the release instead of shipping a build
+          # signed by the wrong key.
+          FINGERPRINT=$(keytool -list -v -keystore android/keystore/signing.keystore \
+            -storepass "$STORE_PASSWORD" -alias "$ALIAS" 2>/dev/null \
+            | awk -F': ' '/SHA256:/ {print $2; exit}' | tr -d ' ')
+          if [ -n "${EXPECTED_SHA256:-}" ]; then
+            EXPECTED=$(printf '%s' "$EXPECTED_SHA256" | tr -d ' :' | tr 'A-F' 'a-f')
+            ACTUAL=$(printf '%s' "$FINGERPRINT" | tr -d ' :' | tr 'A-F' 'a-f')
+            if [ "$EXPECTED" != "$ACTUAL" ]; then
+              echo "::error::Keystore fingerprint mismatch (expected $EXPECTED, got $ACTUAL)."
+              exit 1
+            fi
+            echo "Keystore fingerprint matches the pinned KEYSTORE_SHA256."
+          else
+            echo "Signing certificate SHA-256: ${FINGERPRINT:-<unknown>}"
+            echo "::notice::Set the KEYSTORE_SHA256 secret to pin this fingerprint and fail releases signed by a different key."
+          fi
+
+      - name: Inject llama.cpp runtime (arm64-v8a + x86_64)
+        uses: ./.github/actions/llama-runtime
+        with:
+          abis: 'arm64-v8a x86_64'
+
+
+      - name: Verify llama.cpp runtime binaries (arm64-v8a + x86_64)
+        run: |
+          set -euo pipefail
+          verify_runtime() {
+            ABI="$1"; EXPECT="$2"
+            SO="android/app/src/main/jniLibs/$ABI/libllamaserver.so"
+            if [ ! -f "$SO" ]; then
+              echo "::error::$SO is missing; the release would ship without the Local AI runtime."
+              exit 1
+            fi
+            FILE_OUT=$(file -b "$SO")
+            echo "$ABI: $FILE_OUT"
+            if ! echo "$FILE_OUT" | grep -q '^ELF 64-bit'; then
+              echo "::error::$SO is not a 64-bit ELF: $FILE_OUT"
+              exit 1
+            fi
+            if ! echo "$FILE_OUT" | grep -q "$EXPECT"; then
+              echo "::error::$SO: expected a $EXPECT binary for $ABI, got: $FILE_OUT"
+              exit 1
+            fi
+            # v1.51.2 — the launcher is tiny by design; the payload is the
+            # impl library (llama.cpp b12182 all-shared architecture).
+            IMPL="android/app/src/main/jniLibs/$ABI/libllama-server-impl.so"
+            if [ ! -f "$IMPL" ]; then
+              echo "::error::$IMPL is missing — the launcher cannot run without it."
+              exit 1
+            fi
+            IMPL_SIZE=$(stat -c%s "$IMPL")
+            echo "$ABI impl: $IMPL_SIZE bytes"
+            if [ "$IMPL_SIZE" -lt 1048576 ]; then
+              echo "::error::$IMPL is only $IMPL_SIZE bytes (< 1 MB) — the real server payload is missing."
+              exit 1
+            fi
+          }
+          verify_runtime arm64-v8a aarch64
+          verify_runtime x86_64 x86-64
+
+      - name: Build release APK (universal)
+        env:
+          # Passed straight from secrets: never written to $GITHUB_ENV.
+          KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/signing.keystore
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD || secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ steps.keystore.outputs.alias }}
+          NOAH_REQUIRE_SIGNING: 'true'
+        run: flutter build apk --release
+
+      # v1.41.4 — also ship per-ABI splits (arm64-v8a, armeabi-v7a, x86_64).
+      # Same signing key, smaller downloads; the universal APK stays as the
+      # safe default for users who do not know their device's ABI.
+      - name: Verify runtime inside universal APK
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+          for ABI in arm64-v8a x86_64; do
+            # v1.51.2 — launcher is tiny by design; assert the PAYLOAD
+            # (impl) plus the companions actually made it into the APK.
+            for ENTRY in libllamaserver.so libllama-server-impl.so libggml.so; do
+              LINE=$(unzip -l "$APK" "lib/$ABI/$ENTRY" | tail -n +4 | head -n 1 || true)
+              echo "$ABI $ENTRY entry: $LINE"
+              if [ -z "$(echo "$LINE" | awk '{print $1}')" ]; then
+                echo "::error::lib/$ABI/$ENTRY is missing from $APK — refusing to publish a broken Local AI runtime."
+                FAILED=1
+              fi
+            done
+            LINE=$(unzip -l "$APK" "lib/$ABI/libllama-server-impl.so" | tail -n +4 | head -n 1 || true)
+            SIZE=$(echo "$LINE" | awk '{print $1}')
+            if [ -z "$SIZE" ] || [ "$SIZE" -lt 1048576 ]; then
+              echo "::error::libllama-server-impl.so for $ABI is missing or < 1 MB inside $APK — refusing to publish a broken Local AI runtime."
+              FAILED=1
+            fi
+          done
+          if [ "${FAILED:-0}" = "1" ]; then exit 1; fi
+
+
+      - name: Build release APKs (split per ABI)
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/signing.keystore
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD || secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ steps.keystore.outputs.alias }}
+          NOAH_REQUIRE_SIGNING: 'true'
+        run: flutter build apk --release --split-per-abi
+
+      # Also ship an Android App Bundle (.aab) as the 5th release artifact
+      # (for Play Console uploads). The release buildType signing config in
+      # android/app/build.gradle.kts applies to bundles too, so passing the
+      # same env as the APK steps yields an AAB signed with the same key.
+      - name: Build release app bundle (AAB)
+        env:
+          # Passed straight from secrets: never written to $GITHUB_ENV.
+          KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/signing.keystore
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD || secrets.KEYSTORE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ steps.keystore.outputs.alias }}
+          NOAH_REQUIRE_SIGNING: 'true'
+        run: flutter build appbundle --release
+
+      - name: Verify APK signatures (universal + every ABI split)
+        run: |
+          set -euo pipefail
+          if ! command -v apksigner >/dev/null 2>&1; then
+            sudo apt-get install -y -qq apksigner
+          fi
+          # The universal APK (app-release.apk) is NOT matched by the glob
+          # below (it has no middle segment), so verify it explicitly first.
+          apksigner verify --verbose --print-certs build/app/outputs/flutter-apk/app-release.apk > /dev/null
+          if apksigner verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -qi 'CN=Android Debug'; then
+            echo "::error::Universal release APK is debug-signed."
+            exit 1
+          fi
+          echo "OK: app-release.apk"
+          shopt -s nullglob
+          for APK in build/app/outputs/flutter-apk/app-*-release.apk; do
+            apksigner verify --verbose --print-certs "$APK" > /dev/null
+            if apksigner verify --print-certs "$APK" | grep -qi 'CN=Android Debug'; then
+              echo "::error::$APK is debug-signed."
+              exit 1
+            fi
+            echo "OK: $(basename "$APK")"
+          done
+
+      - name: Verify app bundle (AAB)
+        run: |
+          set -euo pipefail
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          if [ ! -f "$AAB" ]; then
+            echo "::error::$AAB not found."
+            exit 1
+          fi
+          # jarsigner verifies against the certificate embedded in the bundle
+          # (no keystore needed). Reject debug-signed bundles like the APKs.
+          if ! jarsigner -verify "$AAB" > /dev/null; then
+            echo "::error::Release AAB failed jarsigner verification."
+            exit 1
+          fi
+          if jarsigner -verify -certs "$AAB" 2>/dev/null | grep -qi 'CN=Android Debug'; then
+            echo "::error::Release AAB is debug-signed."
+            exit 1
+          fi
+          echo "OK: app-release.aab"
+
+      - name: Delete unzipped keystore (always, even on failure)
+        if: always()
+        run: rm -rf android/keystore
+
+      - name: Organize artifacts (universal + per-ABI + AAB)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p build-outputs
+          # Universal APK (all ABIs) keeps the legacy, unchanged name.
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "build-outputs/Noah-${VERSION}-${GITHUB_REF_NAME}.apk"
+          # Per-ABI splits get an explicit -<abi> suffix so users can pick
+          # the right download (arm64-v8a / armeabi-v7a / x86_64).
+          shopt -s nullglob
+          for APK in build/app/outputs/flutter-apk/app-*-release.apk; do
+            ABI=$(basename "$APK" | sed 's/^app-//; s/-release\.apk$//')
+            cp "$APK" "build-outputs/Noah-${VERSION}-${GITHUB_REF_NAME}-${ABI}.apk"
+          done
+          # Android App Bundle for Play Console (same name pattern as the APKs).
+          cp build/app/outputs/bundle/release/app-release.aab \
+             "build-outputs/Noah-${VERSION}-${GITHUB_REF_NAME}.aab"
+          COUNT=$(ls build-outputs/*.apk build-outputs/*.aab | wc -l)
+          if [ "$COUNT" -lt 5 ]; then
+            echo "::error::Expected 5 artifacts (4 APKs: universal + 3 ABI splits, plus 1 AAB), got $COUNT."
+            ls -lh build-outputs
+            exit 1
+          fi
+          ls -lh build-outputs
+
+      - name: Upload artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v5
+        with:
+          name: app-release-apk
+          path: |
+            build-outputs/*.apk
+            build-outputs/*.aab
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build-outputs/*.apk
+            build-outputs/*.aab
+          generate_release_notes: true
+          # Tags like v1.30.0-beta.1 publish as pre-releases and are not
+          # promoted to "latest".
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}

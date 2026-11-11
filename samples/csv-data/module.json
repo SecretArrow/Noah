@@ -1,0 +1,10 @@
+{
+  "name": "csv-data",
+  "version": "1.0.0",
+  "title": "Data Studio (CSV)",
+  "description": "A per-chat CSV analysis studio via /csv slash commands: load datasets by pasting CSV text right after the command (RFC 4180 parsing — quoted fields, embedded commas/newlines/escaped quotes, automatic , ; or tab delimiter detection), or start from /csv sample. Explore with head/stats/top/sort/filter (numeric-aware comparisons), aggregate with sum/avg/min/max/count, and visualize a column as an in-chat ASCII bar chart or histogram (/csv chart). Datasets live in per-chat storage (up to ~56 KB each) — another chat starts empty. No network needed.",
+  "entry": "main.js",
+  "permissions": ["storage"],
+  "timeoutSeconds": 60,
+  "commands": ["csv"]
+}

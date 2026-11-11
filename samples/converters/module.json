@@ -1,0 +1,11 @@
+{
+  "name": "converters",
+  "version": "1.0.0",
+  "title": "Currency & Units",
+  "description": "Two everyday converters via /cur and /unit slash commands: live currency exchange rates from the free open.er-api.com endpoint (no API key) with smart parsing (/cur 250 usd to idr), a rates table (/cur rates <base>) and a 6-hour per-chat rate cache; plus an offline unit converter (/unit 5 km to mi, /unit 72 f to c, /unit 2 gb to mb) covering length, mass, temperature, data, speed, volume, area and time with generous alias handling (feet/foot/ft, lbs/pound, celsius/c/centigrade…). Currency is the only network call and it is locked to the rate host by the manifest allowlist.",
+  "entry": "main.js",
+  "permissions": ["network", "storage"],
+  "allowedHosts": ["open.er-api.com"],
+  "timeoutSeconds": 60,
+  "commands": ["cur", "unit"]
+}

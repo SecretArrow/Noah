@@ -1,0 +1,10 @@
+{
+  "name": "totp-auth",
+  "version": "1.0.0",
+  "title": "Authenticator (TOTP)",
+  "description": "A per-chat TOTP authenticator (RFC 6238) via /otp slash commands: add accounts with Base32 secrets (/otp add <label> <secret>), generate current 6-8 digit codes with SHA-1/SHA-256/SHA-512 support, list accounts with countdown (/otp list, /otp code), export standard otpauth:// URIs (/otp uri) that pair with the qr-tools module, and remove accounts behind a two-step confirm (/otp remove + /otp confirm). Secrets never leave the device — the module has NO network permission at all; everything lives in per-chat storage so another chat cannot see the accounts.",
+  "entry": "main.js",
+  "permissions": ["storage"],
+  "timeoutSeconds": 60,
+  "commands": ["otp"]
+}

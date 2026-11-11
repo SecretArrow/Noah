@@ -1,0 +1,8 @@
+{
+  "name": "hello-counter",
+  "version": "1.0.0",
+  "title": "Hello Counter",
+  "description": "Counts how many times it has been activated in THIS chat. Demonstrates the per-chat storage API — counts never mix between chats.",
+  "entry": "main.js",
+  "permissions": ["storage"]
+}

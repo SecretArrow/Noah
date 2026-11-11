@@ -1,0 +1,8 @@
+{
+  "name": "chat-streamer",
+  "version": "1.0.0",
+  "title": "Chat Streamer",
+  "description": "Posts step-by-step updates into the conversation while running. Demonstrates zagents.chat.emit progressive output. No storage, no network, no files.",
+  "entry": "main.js",
+  "permissions": ["chat"]
+}

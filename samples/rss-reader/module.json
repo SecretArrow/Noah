@@ -1,0 +1,11 @@
+{
+  "name": "rss-reader",
+  "version": "1.0.0",
+  "title": "RSS Reader",
+  "description": "A per-chat RSS/Atom feed reader via /rss slash commands: subscribe to any RSS 2.0 or Atom feed (/rss add), list subscriptions with unread counts (/rss list), read the latest items of one feed or merged across all feeds newest-first (/rss read, /rss latest), refresh and only show what is new since the last read (/rss refresh), and unsubscribe (/rss remove — two-step confirm). Feed URLs and read-state live in per-chat storage; another chat starts with a clean subscription list. Network is intentionally UNRESTRICTED (no allowedHosts) — feeds can live on any host.",
+  "entry": "main.js",
+  "permissions": ["network", "storage", "chat"],
+  "unrestrictedNetwork": true,
+  "timeoutSeconds": 120,
+  "commands": ["rss"]
+}

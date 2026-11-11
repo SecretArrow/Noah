@@ -1,0 +1,342 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege by default: only the auto-fix job may write.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.7
+  JAVA_VERSION: '17'
+
+jobs:
+  changes:
+    name: Detect code changes (path filter)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+      contents: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'lib/**'
+              - 'test/**'
+              - 'integration_test/**'
+              - 'android/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+              - '.github/workflows/**'
+
+  analyze:
+    name: Format & analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: flutter analyze
+
+  unit-tests:
+    name: Tests (shard ${{ matrix.shard }}/${{ matrix.total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3 shards keep the slowest shard under ~6 min even for the full
+        # ~1.1k-case suite — faster than 2 shards and cheaper than 4.
+        shard: [0, 1, 2]
+        total: [3]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests (shard ${{ matrix.shard }})
+        run: >
+          flutter test --coverage
+          --total-shards ${{ matrix.total }}
+          --shard-index ${{ matrix.shard }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-${{ matrix.shard }}
+          path: coverage/lcov.info
+          if-no-files-found: ignore
+
+  build-android:
+    needs: [changes]
+    name: Build APK (debug)
+    # Compile check for Android/Gradle/plugin changes — PRs used to merge
+    # without ever building the Android target.
+    if: >-
+      (github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch') &&
+      (needs.changes.outputs.code == 'true' ||
+      github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Gradle cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Inject llama.cpp runtime (arm64-v8a + x86_64)
+        uses: ./.github/actions/llama-runtime
+        with:
+          abis: 'arm64-v8a x86_64'
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Verify runtime inside debug APK
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-debug.apk"
+          # v1.51.2 — full stage dump: sources, merged intermediates, the
+          # stripped dir, and the actual APK entry. The APK shipped stub
+          # ELFs (4-7 KB) with keepDebugSymbols + useLegacyPackaging both
+          # active — this dump pinpoints the corrupting stage.
+          echo "== jniLibs sources =="
+          ls -la android/app/src/main/jniLibs/*/libllamaserver.so || true
+          sha256sum android/app/src/main/jniLibs/*/libllamaserver.so || true
+          echo "== gradle intermediates (merge/strip pipeline) =="
+          find build/app/intermediates -name 'libllamaserver.so' \
+            -exec ls -la {} \; -exec sha256sum {} \; || true
+          echo "== APK entries =="
+          for ABI in arm64-v8a x86_64; do
+            # v1.51.2 — the LAUNCHER (libllamaserver.so) is legitimately
+            # tiny (~7 KB) in llama.cpp b12182's all-shared architecture;
+            # the payload is libllama-server-impl.so (> 1 MB).
+            for ENTRY in libllamaserver.so libllama-server-impl.so libggml.so; do
+              LINE=$(unzip -l "$APK" "lib/$ABI/$ENTRY" | tail -n +4 | head -n 1 || true)
+              echo "$ABI $ENTRY entry: $LINE"
+              if [ -z "$(echo "$LINE" | awk '{print $1}')" ]; then
+                echo "::error::lib/$ABI/$ENTRY is missing from $APK."
+                FAILED=1
+              fi
+            done
+            LINE=$(unzip -l "$APK" "lib/$ABI/libllama-server-impl.so" | tail -n +4 | head -n 1 || true)
+            SIZE=$(echo "$LINE" | awk '{print $1}')
+            if [ -z "$SIZE" ] || [ "$SIZE" -lt 1048576 ]; then
+              echo "::error::libllama-server-impl.so for $ABI is missing or < 1 MB inside $APK — the Local AI payload did not survive packaging."
+              FAILED=1
+            else
+              mkdir -p "/tmp/so-dump/$ABI"
+              unzip -o -j "$APK" "lib/$ABI/libllama-server-impl.so" -d "/tmp/so-dump/$ABI" >/dev/null
+              ls -la "/tmp/so-dump/$ABI/libllama-server-impl.so"
+              file -b "/tmp/so-dump/$ABI/libllama-server-impl.so"
+            fi
+          done
+          if [ "${FAILED:-0}" = "1" ]; then exit 1; fi
+
+
+  e2e:
+    needs: [changes]
+    name: E2E (Android emulator)
+    # Skip emulator on PRs to keep CI fast; run on main pushes & manual dispatch.
+    if: >-
+      github.event_name != 'pull_request' &&
+      (needs.changes.outputs.code == 'true' ||
+      github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Gradle cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: AVD cache
+        uses: actions/cache@v5
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ runner.os }}-api33-x86_64-pixel5
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -al /dev/kvm
+
+      - name: Inject llama.cpp runtime (arm64-v8a + x86_64)
+        uses: ./.github/actions/llama-runtime
+        with:
+          abis: 'arm64-v8a x86_64'
+
+      - name: Run integration tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          # -d pins the emulator: without it `flutter test` refuses to pick
+          # a device when more than one is visible.
+          script: flutter test integration_test -d emulator-5554 --timeout 600s
+
+  autofix:
+    name: Auto-fix (dart fix + format)
+    needs: [analyze]
+    # Built-in job result instead of a custom step output (outputs from a
+    # failed job are not guaranteed to be populated).
+    if: >-
+      always() &&
+      needs.analyze.result == 'failure' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          pub-cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply fixes
+        run: |
+          dart fix --apply
+          dart format .
+
+      - name: Verify the tree is clean now
+        id: verify
+        continue-on-error: true
+        run: |
+          dart format --output=none --set-exit-if-changed .
+          flutter analyze
+
+      - name: Commit and push fixes
+        if: steps.verify.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain)" ]]; then
+            # Only tracked Dart sources: never stage generated or env files.
+            git add -u -- '*.dart'
+            git commit -m "chore(auto-fix): dart fix + dart format [skip ci]"
+            git pull --rebase origin main
+            git push
+            echo "Auto-fix pushed."
+          else
+            echo "No fixes to apply."
+          fi
+
+      - name: Fail when fixes were not enough
+        if: steps.verify.outcome != 'success'
+        run: |
+          echo "::error::dart fix/format did not make the tree clean; see the verify step."
+          exit 1

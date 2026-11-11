@@ -1,0 +1,11 @@
+{
+  "name": "web-browser",
+  "version": "1.0.0",
+  "title": "Web Browser",
+  "description": "A text-mode web browser inside the chat via /web slash commands: open any URL in reader mode (title, description, cleaned article text with pagination), list and follow numbered links, multi-engine search (DuckDuckGo Lite/HTML, Mojeek, with Wikipedia + DuckDuckGo Instant Answers as fallbacks), navigation history (/web back), raw output for JSON/API endpoints (/web raw). Reads zagents.info.prompt like a browser address bar when the module is staged with a plain message. NOTE: the network permission is intentionally UNRESTRICTED (no allowedHosts) — a browser must be able to reach any site; everything else stays sandboxed per chat.",
+  "entry": "main.js",
+  "permissions": ["network", "storage", "chat"],
+  "unrestrictedNetwork": true,
+  "timeoutSeconds": 120,
+  "commands": ["web"]
+}
