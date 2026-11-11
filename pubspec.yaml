@@ -25,7 +25,7 @@ dependencies:
   image: ^4.2.2
   pointycastle: ^3.9.1
   local_auth: ^2.3.0
-  crypto: ^3.0.3
+  crypto: ^3.0.8
   meta: ^1.16.0
   flutter_secure_storage: ^11.2.0
   speech_to_text: ^7.5.0
